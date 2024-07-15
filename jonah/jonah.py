@@ -30,13 +30,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def compare_spreadsheets(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
-    output_order = cols = ['Vendor', 'new_vendor', 'PO Number', 'new_po', 'Cost Code', 'new_cc',
-                           'Approved Purchase Orders (A)', 'apo_diff',
-                           'Approved Change Orders (B)', 'aco_diff', 'Total Committed (C = A + B)', 'tc_diff',
-                           'Invoiced (D)', 'invoiced_diff', 'Balance Remaining (E = C - D)', 'br_diff']
-
-
 def make_new_item_row(old_row, new_vendor=False, new_po=False, new_cc=False):
     assert new_vendor or new_po or new_cc, 'At least one of new_vendor, new_po, or new_cc must be True'
     row = old_row.to_dict()
@@ -52,9 +45,6 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
                     'Approved Change Orders (B)', 'aco_diff', 'Total Committed (C = A + B)', 'tc_diff',
                     'Invoiced (D)', 'invoiced_diff', 'Balance Remaining (E = C - D)', 'br_diff']
 
-    vendors_1 = set(s1.Vendor)
-    pos_1 = {v: set(s1[s1.Vendor == v]['PO Number']) for v in vendors_1}
-
     diff_cols = {
         'Approved Purchase Orders (A)': 'apo_diff',
         'Approved Change Orders (B)': 'aco_diff',
@@ -62,6 +52,16 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
         'Invoiced (D)': 'invoiced_diff',
         'Balance Remaining (E = C - D)': 'br_diff'
     }
+
+    for k, _ in diff_cols.items():
+        # print a summary of the numerical differences
+        print(f'{k}: ${s1[k].sum()} -> ${s2[k].sum()}')
+
+    vendors_1 = set(s1.Vendor)
+    pos_1 = {v: set(s1[s1.Vendor == v]['PO Number']) for v in vendors_1}
+
+    new_vendors = set(s2.Vendor) - vendors_1
+    print(f'{len(new_vendors)} new vendors: {new_vendors}')
 
     diff = []
     for row in s2.iloc:
@@ -75,12 +75,14 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
         # case 2: existing vendor, new po
         po = row['PO Number']
         if po not in pos_1[vendor]:
+            print(f'New PO for {vendor=}: {po}')
             diff.append(make_new_item_row(row, new_po=True))
             continue
 
         # case 3: existing vendor and po, new cost code
         cc = row['Cost Code']
         if cc not in set(s1[(s1.Vendor == vendor) & (s1['PO Number'] == po)]['Cost Code']):
+            print(f'New Cost Code for {vendor=}, {po=}: {cc}')
             diff.append(make_new_item_row(row, new_cc=True))
             continue
 
@@ -95,8 +97,18 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
         row['new_po'] = False
         row['new_cc'] = False
         match = match.iloc[0].to_dict()
+        changes = []
         for k, v in diff_cols.items():
             row[v] = row[k] - match[k]
+            if row[v] != 0:
+                changes.append(f'{k}: ${match[k]} -> ${row[k]}')
+        if len(changes) > 0:
+            print('-' * 60)
+            print(f'Changes for {vendor=}, {po=}, {cc=}:')
+            for change in changes:
+                print(f'    {change}')
+            print('-' * 60)
+
         diff.append(row)
 
     diff = pd.DataFrame(diff)
@@ -107,17 +119,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--old', type=str, help='Path to the old spreadsheet')
     parser.add_argument('-n', '--new', type=str, help='Path to the new spreadsheet')
-    parser.add_argument('-out', '--output', type=str, help='Path to the output generated spreadsheet (default diff.csv)', default='diff.csv')
+    parser.add_argument('-out', '--output', type=str,
+                        help='Path to the output generated spreadsheet (default diff.csv)', default='diff.csv')
     args = parser.parse_args()
 
-    s1 = pd.read_excel(args.original)
+    s1 = pd.read_excel(args.old)
     s2 = pd.read_excel(args.new)
 
     s1 = clean(s1)
     s2 = clean(s2)
 
-    comparison_df = compare_spreadsheets(s1, s2)
+    comparison_df = compare(s1, s2)
     comparison_df.to_csv(args.output, index=False)
+    print(f'Comparison saved to {args.output}')
 
 
 if __name__ == '__main__':
