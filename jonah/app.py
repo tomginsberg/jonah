@@ -129,6 +129,17 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> tuple[pd.DataFrame, list[str]
 # Streamlit interface
 st.title('JonAhPP')
 
+
+def load_data(uploaded_file):
+    if uploaded_file is not None:
+        # To read file as a pandas DataFrame
+        df = pd.read_excel(uploaded_file)
+        return df
+    else:
+        # If no file is uploaded, return None or an empty DataFrame
+        return pd.DataFrame()
+
+
 # File uploader widgets
 file1 = st.file_uploader("Choose the first Excel file", type=['xlsx'])
 file2 = st.file_uploader("Choose the second Excel file", type=['xlsx'])
@@ -136,7 +147,7 @@ file2 = st.file_uploader("Choose the second Excel file", type=['xlsx'])
 # Run button
 if st.button('Run'):
     if file1 is not None and file2 is not None:
-        result, log = compare(clean(file1), clean(file2))
+        result, log = compare(clean(load_data(file1)), clean(load_data(file2)))
         result.to_csv('diff.csv', index=False)
         log.append(f'Output saved to {os.path.abspath("diff.csv")}')
         st.text_area('Result:', value='\n'.join(log), height=300)
