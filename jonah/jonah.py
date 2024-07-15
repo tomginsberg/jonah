@@ -52,23 +52,24 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
         'Invoiced (D)': 'invoiced_diff',
         'Balance Remaining (E = C - D)': 'br_diff'
     }
+    log = []
 
     for k, _ in diff_cols.items():
         # print a summary of the numerical differences
         a, b = s1[k].sum(), s2[k].sum()
         if a != b:
-            print(f'{k}: ${a} -> ${b} (${b - a})')
+            log.append(f'{k}: ${a} -> ${b} (${b - a})')
         else:
-            print(f'{k}: ${a} (no change)')
+            log.append(f'{k}: ${a} (no change)')
 
     vendors_1 = set(s1.Vendor)
     pos_1 = {v: set(s1[s1.Vendor == v]['PO Number']) for v in vendors_1}
 
     new_vendors = set(s2.Vendor) - vendors_1
     if len(new_vendors) > 0:
-        print(f'{len(new_vendors)} new vendors: {new_vendors}')
+        log.append(f'{len(new_vendors)} new vendors: {new_vendors}')
     else:
-        print('No new vendors')
+        log.append('No new vendors')
 
     diff = []
     for row in s2.iloc:
@@ -82,14 +83,14 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
         # case 2: existing vendor, new po
         po = row['PO Number']
         if po not in pos_1[vendor]:
-            print(f'New PO for {vendor=}: {po}')
+            log.append(f'New PO for {vendor=}: {po}')
             diff.append(make_new_item_row(row, new_po=True))
             continue
 
         # case 3: existing vendor and po, new cost code
         cc = row['Cost Code']
         if cc not in set(s1[(s1.Vendor == vendor) & (s1['PO Number'] == po)]['Cost Code']):
-            print(f'New Cost Code for {vendor=}, {po=}: {cc}')
+            log.append(f'New Cost Code for {vendor=}, {po=}: {cc}')
             diff.append(make_new_item_row(row, new_cc=True))
             continue
 
@@ -111,16 +112,16 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
                 changes.append(f'{k}: ${match[k]} -> ${row[k]} (${row[k] - match[k]})')
 
         if len(changes) > 0:
-            print('-' * 60)
-            print(f'Changes for {vendor=}, {po=}, {cc=}:')
+            log.append('-' * 60)
+            log.append(f'Changes for {vendor=}, {po=}, {cc=}:')
             for change in changes:
-                print(f'    {change}')
-            print('-' * 60)
+                log.append(f'    {change}')
+            log.append('-' * 60)
 
         diff.append(row)
 
     diff = pd.DataFrame(diff)
-    return diff[output_order]
+    return diff[output_order], log
 
 
 def main():
@@ -137,7 +138,8 @@ def main():
     s1 = clean(s1)
     s2 = clean(s2)
 
-    comparison_df = compare(s1, s2)
+    comparison_df, log = compare(s1, s2)
+    print('\n'.join(log))
     comparison_df.to_csv(args.output, index=False)
     print(f'Comparison saved to {args.output}')
 
