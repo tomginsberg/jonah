@@ -39,7 +39,7 @@ def make_new_item_row(old_row, new_vendor=False, new_po=False, new_cc=False):
     return row
 
 
-def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
+def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     output_order = ['Vendor', 'new_vendor', 'PO Number', 'new_po', 'Cost Code', 'new_cc',
                     'Approved Purchase Orders (A)', 'apo_diff',
                     'Approved Change Orders (B)', 'aco_diff', 'Total Committed (C = A + B)', 'tc_diff',
