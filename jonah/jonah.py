@@ -55,13 +55,20 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
 
     for k, _ in diff_cols.items():
         # print a summary of the numerical differences
-        print(f'{k}: ${s1[k].sum()} -> ${s2[k].sum()}')
+        a, b = s1[k].sum(), s2[k].sum()
+        if a != b:
+            print(f'{k}: ${a} -> ${b} (${b - a})')
+        else:
+            print(f'{k}: ${a} (no change)')
 
     vendors_1 = set(s1.Vendor)
     pos_1 = {v: set(s1[s1.Vendor == v]['PO Number']) for v in vendors_1}
 
     new_vendors = set(s2.Vendor) - vendors_1
-    print(f'{len(new_vendors)} new vendors: {new_vendors}')
+    if len(new_vendors) > 0:
+        print(f'{len(new_vendors)} new vendors: {new_vendors}')
+    else:
+        print('No new vendors')
 
     diff = []
     for row in s2.iloc:
@@ -101,7 +108,8 @@ def compare(s1: pd.DataFrame, s2: pd.DataFrame) -> pd.DataFrame:
         for k, v in diff_cols.items():
             row[v] = row[k] - match[k]
             if row[v] != 0:
-                changes.append(f'{k}: ${match[k]} -> ${row[k]}')
+                changes.append(f'{k}: ${match[k]} -> ${row[k]} (${row[k] - match[k]})')
+
         if len(changes) > 0:
             print('-' * 60)
             print(f'Changes for {vendor=}, {po=}, {cc=}:')
